@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, apiUrl } from "@/lib/api";
 import type { ProjectListItem } from "@/lib/types";
 import { fmtDate, fmtDuration } from "@/lib/format";
 
@@ -77,7 +77,7 @@ export default function Dashboard() {
                 {p.thumbnail_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={p.thumbnail_url}
+                    src={apiUrl(p.thumbnail_url)}
                     alt=""
                     className="h-full w-full object-cover opacity-90"
                   />
