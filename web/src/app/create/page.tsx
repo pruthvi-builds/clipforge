@@ -18,6 +18,7 @@ const REFRAMES: Opt[] = [
   ["center", "Center"],
   ["face", "Face Tracking"],
   ["speaker", "Speaker Tracking"],
+  ["fit", "Fit (no crop)"],
 ];
 const CAPTIONS = ["bold", "clean", "karaoke", "minimal", "highlight"];
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);

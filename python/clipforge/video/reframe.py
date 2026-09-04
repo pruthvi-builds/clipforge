@@ -24,6 +24,7 @@ class CropPlan:
     static: bool
     mode: str
     y_top: int = 0
+    fit: bool = False                     # letterbox/pillarbox the whole frame, no crop
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:
@@ -72,6 +73,10 @@ def plan_crop(
     src_w, src_h = meta.width, meta.height
     target_ar = out_w / out_h                      # 0.5625 for 1080x1920
     src_ar = src_w / src_h if src_h else target_ar
+
+    # fit: keep the whole source frame, letterbox/pillarbox instead of cropping.
+    if mode == "fit":
+        return CropPlan(src_w, src_h, [(0.0, 0)], static=True, mode="fit", y_top=0, fit=True)
 
     # Case 1: source already portrait-or-square -> no horizontal pan needed.
     if src_ar <= target_ar + 1e-3:

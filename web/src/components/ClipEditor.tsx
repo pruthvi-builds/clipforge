@@ -9,6 +9,7 @@ const REFRAMES = [
   ["center", "Center"],
   ["face", "Face Tracking"],
   ["speaker", "Speaker Tracking"],
+  ["fit", "Fit (no crop)"],
 ];
 
 export function ClipEditor({

@@ -57,23 +57,31 @@ def build_filtergraph(req: RenderRequest, tmp_dir: Path) -> tuple[str, list[str]
 
     vchain = [f"trim=start={req.start:.3f}:end={req.end:.3f}", "setpts=PTS-STARTPTS"]
 
-    if plan.static:
-        x = plan.keys[0][1] if plan.keys else 0
+    if plan.fit:
+        # keep the whole frame; scale to fit inside the canvas and pad the rest
+        # with black instead of cropping the sides off.
         vchain.append(
-            f"crop=w={plan.crop_w}:h={plan.crop_h}:x={x}:y={plan.y_top}"
+            f"scale={ow}:{oh}:force_original_aspect_ratio=decrease:flags=lanczos"
         )
+        vchain.append(f"pad={ow}:{oh}:(ow-iw)/2:(oh-ih)/2:color=black")
     else:
-        cmd_path = tmp_dir / "crop.cmds"
-        _write_sendcmd(plan, cmd_path)
-        vchain.append(f"sendcmd=f='{_escape_filter_path(cmd_path)}'")
-        vchain.append(
-            f"crop=w={plan.crop_w}:h={plan.crop_h}:x={plan.keys[0][1] if plan.keys else 0}:y={plan.y_top}"
-        )
+        if plan.static:
+            x = plan.keys[0][1] if plan.keys else 0
+            vchain.append(
+                f"crop=w={plan.crop_w}:h={plan.crop_h}:x={x}:y={plan.y_top}"
+            )
+        else:
+            cmd_path = tmp_dir / "crop.cmds"
+            _write_sendcmd(plan, cmd_path)
+            vchain.append(f"sendcmd=f='{_escape_filter_path(cmd_path)}'")
+            vchain.append(
+                f"crop=w={plan.crop_w}:h={plan.crop_h}:x={plan.keys[0][1] if plan.keys else 0}:y={plan.y_top}"
+            )
 
-    vchain.append(
-        f"scale={ow}:{oh}:force_original_aspect_ratio=increase:flags=lanczos"
-    )
-    vchain.append(f"crop={ow}:{oh}")
+        vchain.append(
+            f"scale={ow}:{oh}:force_original_aspect_ratio=increase:flags=lanczos"
+        )
+        vchain.append(f"crop={ow}:{oh}")
     vchain.append(f"fps={s.output_fps}")
     vchain.append("format=yuv420p")
     if req.ass_path and req.ass_path.exists():
