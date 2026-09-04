@@ -73,7 +73,7 @@ export const api = {
       const form = new FormData();
       form.append("file", file);
       const xhr = new XMLHttpRequest();
-      xhr.open("POST", `/api/projects/${id}/upload`);
+      xhr.open("POST", apiUrl(`/api/projects/${id}/upload`));
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable && onProgress)
           onProgress(Math.round((e.loaded / e.total) * 100));
