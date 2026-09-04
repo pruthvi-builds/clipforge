@@ -76,7 +76,7 @@ class AnalyzeRequest(BaseModel):
     use_llm: bool = True
     topic_hint: str = ""
     render: bool = True
-    reframe_mode: str = "smart_auto"
+    reframe_mode: str = "fit"
     caption_style: str = "bold"
     use_captions: bool = True
     enhance_audio: bool = True

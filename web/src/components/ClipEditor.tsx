@@ -5,11 +5,11 @@ import type { Clip } from "@/lib/types";
 
 const CAPTIONS = ["bold", "clean", "karaoke", "minimal", "highlight"];
 const REFRAMES = [
+  ["fit", "Fit (no crop)"],
   ["smart_auto", "Smart Auto"],
   ["center", "Center"],
   ["face", "Face Tracking"],
   ["speaker", "Speaker Tracking"],
-  ["fit", "Fit (no crop)"],
 ];
 
 export function ClipEditor({
@@ -26,7 +26,7 @@ export function ClipEditor({
   const [hook, setHook] = useState(clip.hook);
   const [opening, setOpening] = useState(clip.opening_text);
   const [captionStyle, setCaptionStyle] = useState("bold");
-  const [reframe, setReframe] = useState("smart_auto");
+  const [reframe, setReframe] = useState("fit");
   const [useCaptions, setUseCaptions] = useState(true);
   const [highlights, setHighlights] = useState((clip.emphasis_words || []).join(", "));
 

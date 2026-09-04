@@ -89,7 +89,7 @@ class Settings:
     output_fps: int = field(default_factory=lambda: _i("CLIPFORGE_OUTPUT_FPS", 30))
     video_crf: int = field(default_factory=lambda: _i("CLIPFORGE_VIDEO_CRF", 18))
     audio_bitrate: str = field(default_factory=lambda: _s("CLIPFORGE_AUDIO_BITRATE", "192k"))
-    reframe_mode: str = field(default_factory=lambda: _s("CLIPFORGE_REFRAME_MODE", "smart_auto"))
+    reframe_mode: str = field(default_factory=lambda: _s("CLIPFORGE_REFRAME_MODE", "fit"))
     caption_style: str = field(default_factory=lambda: _s("CLIPFORGE_CAPTION_STYLE", "bold"))
     enhance_audio: bool = field(default_factory=lambda: _b("CLIPFORGE_ENHANCE_AUDIO", True))
     use_ai_hooks: bool = field(default_factory=lambda: _b("CLIPFORGE_USE_AI_HOOKS", True))

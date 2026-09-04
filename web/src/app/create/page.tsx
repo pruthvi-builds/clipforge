@@ -14,11 +14,11 @@ type Opt = [string, string];
 const STYLES = ["general", "educational", "podcast", "story", "interview"];
 const LENGTHS = ["auto", "15", "30", "45", "60", "90"];
 const REFRAMES: Opt[] = [
+  ["fit", "Fit (no crop)"],
   ["smart_auto", "Smart Auto"],
   ["center", "Center"],
   ["face", "Face Tracking"],
   ["speaker", "Speaker Tracking"],
-  ["fit", "Fit (no crop)"],
 ];
 const CAPTIONS = ["bold", "clean", "karaoke", "minimal", "highlight"];
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
@@ -41,7 +41,7 @@ export default function CreatePage() {
     use_llm: true,
     use_captions: true,
     caption_style: "bold",
-    reframe_mode: "smart_auto",
+    reframe_mode: "fit",
     enhance_audio: true,
   });
 
