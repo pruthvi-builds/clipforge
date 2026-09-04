@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "clipforge"
+version = "1.0.0"
+description = "Turn long videos into short-form content — fully local, no paid APIs."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+  "fastapi>=0.111",
+  "uvicorn[standard]>=0.30",
+  "python-multipart>=0.0.9",
+  "pydantic>=2.7",
+  "python-dotenv>=1.0",
+  "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+transcribe = ["faster-whisper>=1.0"]
+cv = ["opencv-python-headless>=4.9", "numpy>=1.26"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+clipforge = "clipforge.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "python" }
+
+[tool.setuptools.packages.find]
+where = ["python"]
+include = ["clipforge*"]
+
+[tool.pytest.ini_options]
+testpaths = ["python/tests"]
+pythonpath = ["python"]
+addopts = "-q"
+markers = [
+  "e2e: end-to-end test that shells out to ffmpeg (needs ffmpeg on PATH)",
+]

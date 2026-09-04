@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+out/
+web/.env.local
+
+# ClipForge data
+data/projects/*
+!data/projects/.gitkeep
+data/clipforge.db
+data/clipforge.db-*
+*.log
+
+# OS
+.DS_Store
+.env
+
+# Models / caches
+models/
+.cache/

@@ -1,0 +1,30 @@
+# ClipForge Python engine dependencies.
+# All free / open-source. No paid API clients.
+
+# --- Web API + worker ---
+fastapi>=0.111
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+pydantic>=2.7
+
+# --- Config ---
+python-dotenv>=1.0
+
+# --- HTTP (Ollama, local only) ---
+httpx>=0.27
+
+# --- Transcription (preferred backend) ---
+# CTranslate2 wheels may lag new Python releases; if install fails, set
+# CLIPFORGE_WHISPER_BACKEND=whisper.cpp and install whisper.cpp separately.
+faster-whisper>=1.0
+
+# --- Computer vision for reframing / face tracking ---
+# NOTE: the OpenCV 5.0.0 wheel dropped the bundled Haar cascade XML files.
+# If face tracking shows as unavailable in `clipforge doctor`, either install a
+# 4.x build (`pip install "opencv-python-headless<5"`) or set
+# CLIPFORGE_HAARCASCADE_DIR. Reframing falls back to a centre crop meanwhile.
+opencv-python-headless>=4.9
+numpy>=1.26
+
+# --- Testing ---
+pytest>=8.0

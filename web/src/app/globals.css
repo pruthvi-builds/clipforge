@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #0a0b0f;
+  color: #e7e9ee;
+}
+
+* {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+::selection {
+  background: rgba(109, 94, 252, 0.35);
+}
+
+/* thin scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #262b3a;
+  border-radius: 999px;
+  border: 2px solid #0a0b0f;
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-white/[0.06] bg-ink-850 shadow-card;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium
+      transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-brand-500 text-white hover:bg-brand-600;
+  }
+  .btn-ghost {
+    @apply btn border border-white/10 bg-white/[0.02] text-ink-100 hover:bg-white/[0.06];
+  }
+  .input {
+    @apply w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm
+      outline-none focus:border-brand-500;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-100/50;
+  }
+  .pill {
+    @apply inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs;
+  }
+}

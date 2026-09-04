@@ -1,0 +1,19 @@
+{
+  "name": "clipforge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Turn long videos into short-form content — fully local, no paid APIs.",
+  "scripts": {
+    "setup": "bash scripts/setup.sh",
+    "doctor": "python3 clipforge.py doctor",
+    "api": "bash scripts/run.sh api",
+    "worker": "bash scripts/run.sh worker",
+    "web": "npm --prefix web run dev",
+    "web:build": "npm --prefix web run build",
+    "web:typecheck": "npm --prefix web run typecheck",
+    "dev": "bash scripts/start-local.sh",
+    "start:local": "bash scripts/start-local.sh",
+    "test": "bash scripts/run.sh test",
+    "cli": "python3 clipforge.py"
+  }
+}
