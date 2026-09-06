@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
@@ -24,7 +24,7 @@ from ..config import get_settings
 from ..logging_setup import get_logger, setup_logging
 from ..util.errors import ClipForgeError
 from ..util.fsutil import (
-    SUPPORTED_VIDEO_EXT, ensure_project_tree, new_project_id, safe_join,
+    SUPPORTED_VIDEO_EXT, ensure_project_tree, new_project_id, read_json, safe_join,
     sanitize_filename, write_json,
 )
 from .. import __version__, db
@@ -228,44 +228,144 @@ async def upload_video(pid: str, file: UploadFile = File(...)):
         raise HTTPException(404, "Project not found")
 
     safe_name = sanitize_filename(file.filename or "video.mp4")
+    ext = _resolve_upload_ext(safe_name)
+
+    pdir = _settings.project_dir(pid)
+    ensure_project_tree(pdir)
+    dst = pdir / ("original" + ext)
+
+    with dst.open("wb") as out:
+        while True:
+            chunk = await file.read(1024 * 1024)
+            if not chunk:
+                break
+            out.write(chunk)
+
+    return _finalize_upload(pid, dst, safe_name)
+
+
+def _resolve_upload_ext(filename: str) -> str:
+    safe_name = sanitize_filename(filename or "video.mp4")
     ext = Path(safe_name).suffix.lower()
     if ext not in SUPPORTED_VIDEO_EXT:
         raise ClipForgeError(
             f"Unsupported file type {ext or '(none)'!r}.",
             hint="Supported: " + ", ".join(sorted(SUPPORTED_VIDEO_EXT)),
         )
+    return ext
 
-    pdir = _settings.project_dir(pid)
-    ensure_project_tree(pdir)
-    dst = pdir / ("original" + ext)
 
-    size = 0
-    with dst.open("wb") as out:
-        while True:
-            chunk = await file.read(1024 * 1024)
-            if not chunk:
-                break
-            size += len(chunk)
-            out.write(chunk)
-    if size < 1024:
+def _finalize_upload(pid: str, dst: Path, safe_name: str) -> dict:
+    """Shared tail of every upload path: probe, persist, return media info."""
+    if not dst.exists() or dst.stat().st_size < 1024:
         dst.unlink(missing_ok=True)
         raise ClipForgeError("Uploaded file is empty or truncated.")
-
     try:
         meta = probe_video(dst)
     except ClipForgeError:
         dst.unlink(missing_ok=True)
         raise
+    pdir = dst.parent
     write_json(pdir / "meta.json", meta.to_dict())
     db.upsert_video(pid, meta.to_dict(), safe_name)
     db.set_project_status(pid, "uploaded")
-
     return {
         "id": pid,
         "filename": safe_name,
         "meta": meta.to_dict(),
         "media": _project_media(pid),
     }
+
+
+class ChunkedStartRequest(BaseModel):
+    filename: str
+    size: int = Field(ge=1)
+
+
+@app.post("/api/projects/{pid}/upload/chunked/start")
+def upload_chunked_start(pid: str, body: ChunkedStartRequest):
+    """Begin (or resume) a chunked upload.
+
+    Chunked uploads exist because some tunnels cap or badly throttle a single
+    large request body. The client sends the file in small sequential slices
+    to ``.../chunked`` and then calls ``.../chunked/finish``.
+    """
+    if not db.get_project(pid):
+        raise HTTPException(404, "Project not found")
+    ext = _resolve_upload_ext(body.filename)
+
+    pdir = _settings.project_dir(pid)
+    ensure_project_tree(pdir)
+    part = pdir / ("original" + ext + ".part")
+    # Resume if a matching partial is already on disk, otherwise start clean.
+    received = part.stat().st_size if part.exists() else 0
+    if received > body.size:
+        part.unlink(missing_ok=True)
+        received = 0
+    if received == 0:
+        part.touch()
+    write_json(pdir / "upload.json", {
+        "filename": sanitize_filename(body.filename),
+        "ext": ext,
+        "size": body.size,
+    })
+    return {"ok": True, "received": received, "chunk_size": 4 * 1024 * 1024}
+
+
+@app.patch("/api/projects/{pid}/upload/chunked")
+async def upload_chunked_part(pid: str, request: Request):
+    """Append one chunk. ``X-Offset`` must equal the bytes already stored."""
+    if not db.get_project(pid):
+        raise HTTPException(404, "Project not found")
+    pdir = _settings.project_dir(pid)
+    info = read_json(pdir / "upload.json", {})
+    if not info:
+        raise ClipForgeError("No chunked upload in progress. Call /start first.")
+    part = pdir / ("original" + info["ext"] + ".part")
+    have = part.stat().st_size if part.exists() else 0
+
+    try:
+        offset = int(request.headers.get("x-offset", ""))
+    except ValueError:
+        raise ClipForgeError("Missing or invalid X-Offset header.")
+    if offset != have:
+        # Client and server disagree on progress; tell the client where to resume.
+        return JSONResponse(status_code=409, content={"error": {
+            "code": "offset_mismatch", "message": "Chunk offset mismatch.",
+            "received": have,
+        }})
+
+    body = await request.body()
+    if not body:
+        raise ClipForgeError("Empty chunk.")
+    with part.open("r+b") as fh:
+        fh.seek(offset)
+        fh.write(body)
+    new_total = part.stat().st_size
+    if new_total > info["size"]:
+        part.unlink(missing_ok=True)
+        raise ClipForgeError("Upload exceeded declared size; restart the upload.")
+    return {"received": new_total, "size": info["size"]}
+
+
+@app.post("/api/projects/{pid}/upload/chunked/finish")
+def upload_chunked_finish(pid: str):
+    if not db.get_project(pid):
+        raise HTTPException(404, "Project not found")
+    pdir = _settings.project_dir(pid)
+    info = read_json(pdir / "upload.json", {})
+    if not info:
+        raise ClipForgeError("No chunked upload in progress.")
+    part = pdir / ("original" + info["ext"] + ".part")
+    have = part.stat().st_size if part.exists() else 0
+    if have != info["size"]:
+        raise ClipForgeError(
+            f"Upload incomplete ({have}/{info['size']} bytes). Retry the upload.",
+        )
+    dst = pdir / ("original" + info["ext"])
+    part.replace(dst)
+    (pdir / "upload.json").unlink(missing_ok=True)
+    return _finalize_upload(pid, dst, info["filename"])
 
 
 @app.post("/api/projects/{pid}/analyze")
