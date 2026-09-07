@@ -35,7 +35,7 @@ export default function CreatePage() {
   const stopPoll = useRef<() => void>();
 
   const [cfg, setCfg] = useState({
-    n_clips: 5,
+    n_clips: 10,
     clip_length: "auto",
     style: "general",
     use_llm: true,
@@ -117,7 +117,7 @@ export default function CreatePage() {
             <Segmented
               label="Desired clips"
               value={String(cfg.n_clips)}
-              options={[["3", "3"], ["5", "5"], ["10", "10"], ["15", "15"], ["20", "20"]] as Opt[]}
+              options={[["3", "3"], ["5", "5"], ["10", "10"]] as Opt[]}
               onChange={(v) => setCfg({ ...cfg, n_clips: Number(v) })}
             />
             <Segmented
