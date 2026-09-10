@@ -1,86 +1,69 @@
 # ClipForge deployment
 
-The web UI is hosted on Vercel (free). The Python engine (API + worker +
-ffmpeg + whisper) runs on this Mac and is exposed to the internet over a
-stable **Tailscale Funnel** URL. Everything is supervised by `launchd`, so it
-starts on login and restarts on crash — no manual `npm run` ever needed.
+Everything runs on this Mac. Both the frontend and the engine are served
+locally and reached from the user's own devices over **Tailscale** — there is
+no public tunnel, because every public tunnel we tried (Tailscale Funnel,
+cloudflared quick tunnel) became the single recurring point of failure.
 
 ```
-Browser ──▶ https://clipforge-kappa-cyan.vercel.app      (static Next.js, Vercel)
-   │
-   └──────▶ https://clipforge-mac.tailc2d6b9.ts.net ──▶ 127.0.0.1:8787  (FastAPI, this Mac)
-                     (Tailscale Funnel)                     │
-                                                            └─ worker polls the same SQLite DB
+Your laptop / phone (on the tailnet)
+        │
+        ▼  https://clipforge-mac.tailc2d6b9.ts.net   (Tailscale Serve, tailnet-only)
+   next start  :3001   ──rewrite /api/*──▶  FastAPI :8787
+        │                                      │
+   (built Next.js frontend)              worker polls same SQLite DB
 ```
 
-The Funnel URL is permanent — it only changes if the machine is renamed or the
-tailnet changes. Vercel's `NEXT_PUBLIC_API_URL` points at it and should never
-need updating again.
+One origin, so no CORS and no `NEXT_PUBLIC_API_URL`. Uploads still go in
+4 MB chunks (resumable) but now at full Tailscale speed.
 
-## Services (launchd user agents — no root, no sudo)
+## Services (launchd user agents, no root)
 
-| Label                     | Runs                                        | Log                   |
-|---------------------------|---------------------------------------------|-----------------------|
-| `com.clipforge.api`       | `python -m clipforge.server.app` (:8787)     | `logs/api.log`        |
-| `com.clipforge.worker`    | `python -m clipforge.server.worker`          | `logs/worker.log`     |
-| `com.clipforge.tailscaled`| `tailscaled` (userspace) + persisted Funnel  | `logs/tailscaled.log` |
+| Label                      | Runs                                | Log                   |
+|----------------------------|-------------------------------------|-----------------------|
+| `com.clipforge.api`        | `python -m clipforge.server.app`    | `logs/api.log`        |
+| `com.clipforge.worker`     | `python -m clipforge.server.worker` | `logs/worker.log`     |
+| `com.clipforge.web`        | `next start` on :3001               | `logs/web.log`        |
+| `com.clipforge.tailscaled` | `tailscaled` (userspace) + Serve    | `logs/tailscaled.log` |
 
-`tailscaled` runs in `--tun=userspace-networking` mode, so it needs no
-privileges. Its state (including the Funnel publish rule) lives in
-`~/.clipforge-tailscale/`, so Funnel resumes automatically on restart.
-
-Plist sources are versioned in `scripts/launchagents/`; the live copies are in
-`~/Library/LaunchAgents/`. Wrappers they call are `scripts/svc-*.sh`.
+All `KeepAlive` + `RunAtLoad`: start on login, respawn on crash.
 
 ### Common commands
 
 ```bash
-# status
 launchctl list | grep clipforge
-tailscale --socket=$HOME/.clipforge-tailscale/tailscaled.sock funnel status
+tailscale --socket=$HOME/.clipforge-tailscale/tailscaled.sock serve status
 
 # restart one service
-launchctl kickstart -k gui/$(id -u)/com.clipforge.api
+launchctl kickstart -k gui/$(id -u)/com.clipforge.web
 
-# stop / start a service
-launchctl bootout    gui/$(id -u)/com.clipforge.api
-launchctl bootstrap  gui/$(id -u) ~/Library/LaunchAgents/com.clipforge.api.plist
+# after a frontend code change: rebuild then restart
+cd web && npm run build && launchctl kickstart -k gui/$(id -u)/com.clipforge.web
 
-# tail logs
-tail -f logs/api.log logs/worker.log logs/tailscaled.log
-```
-
-## Updating the app
-
-```bash
-git pull
-
-# web changes: redeploy (or connect the Vercel Git integration for auto-deploy)
-cd web && vercel --prod --yes
-
-# engine changes:
-pip install -r requirements.txt        # only if deps changed
+# after an engine change
 launchctl kickstart -k gui/$(id -u)/com.clipforge.api
 launchctl kickstart -k gui/$(id -u)/com.clipforge.worker
+
+tail -f logs/*.log
 ```
 
-## One-time setup (already done — kept for reference / a fresh machine)
+## Accessing it
+
+Install the Tailscale app on any device you want to use ClipForge from
+(sign in with the same account, `pruthvi-builds`). Then open
+**https://clipforge-mac.tailc2d6b9.ts.net**.
+
+If the userspace `tailscaled` proves flaky for Serve, install the Tailscale
+**macOS app** instead — it runs a kernel-mode daemon that is far more robust —
+then re-point Serve:
 
 ```bash
-brew install tailscale
-mkdir -p ~/.clipforge-tailscale
-
-# start the userspace daemon (the launchd agent does this going forward)
-tailscaled --tun=userspace-networking \
-  --socket=$HOME/.clipforge-tailscale/tailscaled.sock \
-  --statedir=$HOME/.clipforge-tailscale/state &
-
-SOCK=$HOME/.clipforge-tailscale/tailscaled.sock
-tailscale --socket=$SOCK up --hostname=clipforge-mac   # visit the printed URL, sign in
-tailscale --socket=$SOCK funnel --bg 8787              # enable Funnel at the printed URL if prompted
-
-# load the agents
-for a in api worker tailscaled; do
-  launchctl load ~/Library/LaunchAgents/com.clipforge.$a.plist
-done
+tailscale serve --bg --https=443 3001
 ```
+
+and remove the `com.clipforge.tailscaled` agent (the app manages its own daemon).
+
+## The Vercel deployment
+
+`clipforge-kappa-cyan.vercel.app` still exists but is no longer the way in
+(it needed the public tunnel). Left in place as a static fallback; ignore it.
