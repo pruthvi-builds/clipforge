@@ -31,3 +31,4 @@ models/
 
 # Service logs
 logs/
+web/tsconfig.tsbuildinfo
