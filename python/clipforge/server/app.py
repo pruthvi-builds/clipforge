@@ -9,6 +9,7 @@ files from under the configured data directory.
 
 from __future__ import annotations
 
+import asyncio
 import mimetypes
 import uuid
 from contextlib import asynccontextmanager
@@ -38,12 +39,38 @@ setup_logging()
 _settings = get_settings()
 
 
+async def _requeue_stale_jobs_loop() -> None:
+    """Periodically rescue jobs orphaned in 'processing' state.
+
+    ``requeue_stale_jobs`` normally only runs once, at process startup. The
+    worker is a long-lived synchronous singleton, though — if a job is ever
+    left marked "processing" without a worker actually running it (e.g. a
+    restart racing a claim), it would otherwise sit stuck for the rest of
+    that worker's uptime, which can be days. Re-check every few minutes from
+    here instead. The 1h staleness window (the default) is intentionally
+    generous so this never touches a job a worker is legitimately still
+    grinding through.
+    """
+    while True:
+        await asyncio.sleep(300.0)
+        try:
+            n = db.requeue_stale_jobs()
+            if n:
+                log.info("re-queued %d stale job(s)", n)
+        except Exception:
+            log.exception("stale-job sweep failed")
+
+
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
     db.init_db()
     n = db.requeue_stale_jobs()
     log.info("API up (v%s). data=%s  requeued=%d", __version__, _settings.data_dir, n)
-    yield
+    task = asyncio.create_task(_requeue_stale_jobs_loop())
+    try:
+        yield
+    finally:
+        task.cancel()
 
 
 app = FastAPI(title="ClipForge API", version=__version__, lifespan=_lifespan)
