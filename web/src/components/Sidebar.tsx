@@ -18,13 +18,26 @@ export function Sidebar() {
   const [online, setOnline] = useState<boolean | null>(null);
 
   useEffect(() => {
-    api
-      .health()
-      .then((h) => {
-        setVersion(h.version);
-        setOnline(true);
-      })
-      .catch(() => setOnline(false));
+    let cancelled = false;
+    const check = () =>
+      api
+        .health()
+        .then((h) => {
+          if (cancelled) return;
+          setVersion(h.version);
+          setOnline(true);
+        })
+        .catch(() => {
+          if (!cancelled) setOnline(false);
+        });
+    check();
+    // A single check-on-mount could permanently show "API offline" if it
+    // happened to race a brief restart; keep rechecking so it self-heals.
+    const id = setInterval(check, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, []);
 
   return (

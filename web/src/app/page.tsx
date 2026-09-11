@@ -22,7 +22,10 @@ export default function Dashboard() {
   const load = () =>
     api
       .listProjects()
-      .then(setProjects)
+      .then((p) => {
+        setProjects(p);
+        setError(null); // clear a stale error once a poll succeeds again
+      })
       .catch((e) => setError(e.message));
 
   useEffect(() => {
