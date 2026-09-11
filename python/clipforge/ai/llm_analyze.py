@@ -82,9 +82,26 @@ class LLMAnalyzer:
             return candidates
 
         total = max(1, len(candidates))
+        consecutive_batch_failures = 0
         for start in range(0, len(candidates), _BATCH):
             batch = candidates[start:start + _BATCH]
+            if consecutive_batch_failures >= 2:
+                # Ollama answered the initial ping but is now unresponsive
+                # under load — every remaining batch would otherwise pay the
+                # same multi-minute retry cost for no benefit. Stop calling
+                # it and let the rest keep their heuristic scores.
+                log.warning(
+                    "LLM unresponsive for %d consecutive batches — skipping "
+                    "remaining %d candidate(s), keeping heuristic scores",
+                    consecutive_batch_failures, len(candidates) - start,
+                )
+                for c in candidates[start:]:
+                    c.llm_used = False
+                break
             results = self._eval_batch(batch, topic_hint)
+            consecutive_batch_failures = (
+                0 if any(results) else consecutive_batch_failures + 1
+            )
             for c, res in zip(batch, results):
                 if not res:
                     c.llm_used = False
