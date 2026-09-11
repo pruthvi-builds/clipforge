@@ -38,7 +38,7 @@ def _settings_with_overrides() -> Settings:
     return s
 
 
-def _progress_writer(job_id: str):
+def _progress_writer(job_id: str, pid: str | None = None):
     last = [0.0]
 
     def cb(frac: float, stage: str, msg: str) -> None:
@@ -46,6 +46,11 @@ def _progress_writer(job_id: str):
         now = time.time()
         if frac >= 1.0 or now - last[0] > 0.4:
             last[0] = now
+            # If the project was deleted while this stage was running, stop
+            # instead of grinding on into a directory that no longer exists
+            # (or worse, one silently recreated under it).
+            if pid and not get_project(pid):
+                raise ClipForgeError("Project was deleted; aborting job.")
             update_job(job_id, stage=stage, progress=round(float(frac), 4), message=msg)
 
     return cb
@@ -66,7 +71,7 @@ def run_job(job: dict) -> None:
     pid = job["project_id"]
     params = job.get("params", {})
     s = _settings_with_overrides()
-    cb = _progress_writer(job_id)
+    cb = _progress_writer(job_id, pid)
 
     project = get_project(pid) if pid else None
     if pid and not project:
