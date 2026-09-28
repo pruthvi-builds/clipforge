@@ -24,9 +24,12 @@ One origin, so no CORS and no `NEXT_PUBLIC_API_URL`. Uploads still go in
 | `com.clipforge.api`        | `python -m clipforge.server.app`    | `logs/api.log`        |
 | `com.clipforge.worker`     | `python -m clipforge.server.worker` | `logs/worker.log`     |
 | `com.clipforge.web`        | `next start` on :3001               | `logs/web.log`        |
+| `com.clipforge.tailscale-watchdog` | relaunches Tailscale + re-applies Serve if either drops | `logs/tailscale-watchdog.log` |
 
 All `KeepAlive` + `RunAtLoad`: start on login, respawn on crash. Tailscale
-itself is the macOS app, not a launchd agent.
+itself is the macOS app, not a launchd agent — the watchdog checks every
+~2 min that it's running and Serve is still configured, and fixes it if not
+(this is what covers "Tailscale got closed / a reboot didn't restart it").
 
 ### Common commands
 
